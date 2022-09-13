@@ -1,5 +1,4 @@
-# aliyunDDNS
-阿里云DDNS
+# 阿里云DDNS
 支持IPV4/IPV6
 
 ```
