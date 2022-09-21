@@ -6,7 +6,9 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/alidns"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"strings"
 )
 
 var accessKeyId = flag.String("id", "", "")
@@ -20,6 +22,9 @@ func main() {
 	client, _ := alidns.NewClientWithAccessKey("cn-hangzhou", *accessKeyId, *accessKeySecret)
 	record := getDomainRecords(client)
 	ip := getIP()
+	if ip == "" {
+		log.Println("未查询到相关的IP地址")
+	}
 	if record == nil {
 		addDomain(client, ip)
 	} else {
@@ -92,7 +97,7 @@ func getDomainRecords(client *alidns.Client) *alidns.Record {
 
 func getIP() string {
 	if *recordType == "AAAA" {
-		return getIPV6()
+		return GetLocalIPV6()
 	} else {
 		return getIPV4()
 	}
@@ -118,4 +123,32 @@ func getIPV6() string {
 	defer resp.Body.Close()
 	content, _ := ioutil.ReadAll(resp.Body)
 	return string(content)
+}
+
+func GetLocalIPV6() (ip string) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return
+	}
+	var prefix string
+	for _, addr := range addrs {
+		ipAddr, ok := addr.(*net.IPNet)
+		ip := ipAddr.IP
+		ipStr := ip.String()
+		if !ok {
+			continue
+		}
+		if !ip.IsGlobalUnicast() {
+			continue
+		}
+		if strings.Contains(ipStr, "::") && strings.Count(ipStr, ":") == 5 {
+			prefix = strings.Split(ipStr, "::")[0]
+			continue
+		}
+
+		if strings.HasPrefix(ipStr, prefix) && strings.Count(ipStr, ":") == 7 {
+			return ip.String()
+		}
+	}
+	return
 }
